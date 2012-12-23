@@ -21,7 +21,10 @@ const char* accept_str = "text/html,application/xhtml+xml,application/xml;q=0.9,
 const char* accept_encoding = "gzip, deflate";
 
 #define MAX_HDR_LEN 1024
-pthread_rwlock_t rwlock;
+extern pthread_rwlock_t rwlock;
+extern int *readcnt;
+extern sem_t *mutexp;
+extern sem_t *w;
 /*
  * Function prototypes
  */
@@ -68,8 +71,6 @@ int main(int argc, char **argv)
         clientlen = sizeof(clientaddr);
         connfdp = Malloc(sizeof(int));
         *connfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen);
-        server_log(&clientaddr);
-
         Pthread_create(&tid, NULL, thread, (void *)connfdp);
     }
     // pthread_rwlock_destroy(&rwlock);
@@ -94,7 +95,19 @@ void serve(int fd) {
 
     strcpy(request, buf);
     if ((entry = is_in_cache(request)) != NULL) {
+        sem_wait(mutexp);
+        readcnt++;
+        if (readcnt == 1) 
+            sem_wait(w);
+        sem_post(mutexp);
+
         Rio_writen(fd, entry->content, entry->content_size);
+
+        sem_wait(mutexp);
+        readcnt--;
+        if (readcnt == 0)
+            sem_post(w);
+        sem_post(mutexp);
         return;
     }
 
