@@ -6,7 +6,7 @@ CC = gcc
 CFLAGS = -Wall -g 
 LDFLAGS = -lpthread
 
-OBJS = proxy.o csapp.o
+OBJS = proxy.o csapp.o cache.o crc32.o
 
 all: proxy tiny
 
@@ -24,6 +24,12 @@ proxy.o: proxy.c
 
 tiny.o: tiny.c
 	$(CC) $(CFLAGS) -c tiny.c
+
+cache.o: cache.c
+	$(CC) $(CFLAGS) -c cache.c	
+
+crc32.o: crc32.c
+	$(CC) $(CFLAGS) -c crc32.c
 
 handin:
 	cp proxy.c $(HANDINDIR)/$(TEAM)-$(VERSION)-proxy.c
