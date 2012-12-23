@@ -6,17 +6,17 @@ CC = gcc
 CFLAGS = -Wall -g 
 LDFLAGS = -lpthread
 
-OBJS = proxy.o csapp.o cache.o crc32.o
+OBJS = proxy.o csapp.o cache.o crc32.o tswrapper.o
 
 all: proxy tiny
 
 proxy: $(OBJS)
 	$(CC) $(OBJS) -o proxy $(LDFLAGS)
 
-tiny: csapp.o tiny.o
-	$(CC) tiny.o csapp.o -o tiny $(LDFLAGS)
+tiny: csapp.o tiny.o tswrapper.o
+	$(CC) tiny.o csapp.o tswrapper.o -o tiny $(LDFLAGS)
 
-csapp.o: csapp.c
+csapp.o: csapp.c 
 	$(CC) $(CFLAGS) -c csapp.c
 
 proxy.o: proxy.c
@@ -30,6 +30,9 @@ cache.o: cache.c
 
 crc32.o: crc32.c
 	$(CC) $(CFLAGS) -c crc32.c
+
+tswrapper.o: tswrapper.c
+	$(CC) $(CFLAGS) -c tswrapper.c
 
 handin:
 	cp proxy.c $(HANDINDIR)/$(TEAM)-$(VERSION)-proxy.c

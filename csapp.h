@@ -23,6 +23,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "tswrapper.h"
 
 
 /* Default file permissions are DEF_MODE & ~DEF_UMASK */

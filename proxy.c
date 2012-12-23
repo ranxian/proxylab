@@ -12,6 +12,7 @@
 
 #include "csapp.h"
 #include "cache.h"
+#include "tswrapper.h"
  
 /*
  * Consts
@@ -21,10 +22,7 @@ const char* accept_str = "text/html,application/xhtml+xml,application/xml;q=0.9,
 const char* accept_encoding = "gzip, deflate";
 
 #define MAX_HDR_LEN 1024
-extern pthread_rwlock_t rwlock;
-extern int *readcnt;
-extern sem_t *mutexp;
-extern sem_t *w;
+
 /*
  * Function prototypes
  */
@@ -66,14 +64,16 @@ int main(int argc, char **argv)
     listenfd = Open_listenfd(port);
 
     cache_init();
-    // pthread_rwlock_init(&rwlock, NULL);
+    ts_hnmutex = sem_open("hnmutex", O_CREAT, DEF_MODE, 1);
+
     while (1) {
         clientlen = sizeof(clientaddr);
         connfdp = Malloc(sizeof(int));
         *connfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen);
         Pthread_create(&tid, NULL, thread, (void *)connfdp);
     }
-    // pthread_rwlock_destroy(&rwlock);
+
+    sem_destroy(ts_hnmutex);
     exit(0);
 }
 

@@ -737,14 +737,14 @@ ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
 int open_clientfd(char *hostname, int port) 
 {
     int clientfd;
-    struct hostent *hp;
+    struct hostent *hp = Malloc(sizeof(struct hostent));
     struct sockaddr_in serveraddr;
 
     if ((clientfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	return -1; /* check errno for cause of error */
 
     /* Fill in the server's IP address and port */
-    if ((hp = gethostbyname(hostname)) == NULL)
+    if ((hp = gethostbyname_ts(hostname, hp)) == NULL)
 	return -2; /* check h_errno for cause of error */
     bzero((char *) &serveraddr, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
