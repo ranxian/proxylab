@@ -11,7 +11,8 @@
  */ 
 
 #include "csapp.h"
-
+#include "cache.h"
+ 
 /*
  * Consts
  */
@@ -20,9 +21,7 @@ const char* accept_str = "text/html,application/xhtml+xml,application/xml;q=0.9,
 const char* accept_encoding = "gzip, deflate";
 
 #define MAX_HDR_LEN 1024
-#define MAX_CACHE_SIZE 1048576 // 1M cache size
-#define MAX_OBJECT_SIZE 102400 // 100k max object size
-
+pthread_rwlock_t rwlock;
 /*
  * Function prototypes
  */
@@ -62,6 +61,9 @@ int main(int argc, char **argv)
     port = atoi(argv[1]);
 
     listenfd = Open_listenfd(port);
+
+    cache_init();
+    // pthread_rwlock_init(&rwlock, NULL);
     while (1) {
         clientlen = sizeof(clientaddr);
         connfdp = Malloc(sizeof(int));
@@ -70,7 +72,7 @@ int main(int argc, char **argv)
 
         Pthread_create(&tid, NULL, thread, (void *)connfdp);
     }
-
+    // pthread_rwlock_destroy(&rwlock);
     exit(0);
 }
 
@@ -82,11 +84,21 @@ void serve(int fd) {
     char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
     char hdrstr[MAX_HDR_LEN] = {}, hostname[MAXLINE], pathname[MAXLINE];
     int clientfd, port, readcnt;
+    char request[MAXLINE];
+    CE *entry;
     rio_t rio;
   
     /* Read request line and headers */
     Rio_readinitb(&rio, fd);
     Rio_readlineb(&rio, buf, MAXLINE);                 
+
+    strcpy(request, buf);
+    if ((entry = is_in_cache(request)) != NULL) {
+        Rio_writen(fd, entry->content, entry->content_size);
+        return;
+    }
+
+
     sscanf(buf, "%s %s %s", method, uri, version);       
     if (strcasecmp(method, "GET")) {                     
         clienterror(fd, "Sorry, prxoy server servers only GET method now.");
@@ -107,10 +119,21 @@ void serve(int fd) {
     Rio_writen(clientfd, hdrstr, strlen(hdrstr));
     // printf("%s", hdrstr);
 
+
+    char cache_buf[MAX_OBJECT_SIZE];
+    int cnt = 0, cached = 1;
     while ((readcnt = Rio_readn(clientfd, buf, MAXLINE)) > 0) {
+        if (cnt + readcnt <= MAX_OBJECT_SIZE) {
+            memcpy(cache_buf + cnt, buf, readcnt);
+            cnt += readcnt;
+        } else {
+            cached = 0;
+        }
         Rio_writen(fd, buf, readcnt);
     }
-
+    if (cached) {
+        add_cache_entry(request, cache_buf, cnt);
+    }
     Close(clientfd);
 }
 

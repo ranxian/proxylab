@@ -1,5 +1,6 @@
 #include "cache.h"
 #include <stdio.h>
+
 void cache_init() 
 {
     cache.ca_head = cache.ca_tail = NULL;
@@ -49,7 +50,7 @@ void remove_cache_entry(CE *entry) {
 
 
 CE *add_cache_entry(char *request, char *content, int len) {
-    printf("add object of size %d\n", len);
+    printf("add object of size %d -- cache size: %ld\n", len, cache.ca_size);
     fflush(stdout);
     CE *res;
     // Rio_writen(1, content, len);
@@ -58,6 +59,7 @@ CE *add_cache_entry(char *request, char *content, int len) {
         printf("1\n");
         remove_cache_entry(cache.ca_head);
     }
+    cache.ca_size += len;
 
     if (cache.ca_head == NULL) {
         cache.ca_head = Malloc(sizeof(CE));
