@@ -5,12 +5,8 @@
 #include "crc32.h"
 #include "csapp.h"
 
-#define MAX_CACHE_SIZE 1048576 // 1M cache size
+#define MAX_CACHE_SIZE  (1 << 20) // 1M cache size
 #define MAX_OBJECT_SIZE 102400 // 100k max object size
-
-extern sem_t *mutexp;
-extern sem_t *w;
-extern int ca_readcnt;
 
 struct cache_entry_t {
     int key;
@@ -35,5 +31,6 @@ CE *is_in_cache(char *request);
 void remove_cache_entry(CE *entry);
 CE *add_cache_entry(char *request, char *content, int len);
 void check_cache();
+void update_cache(CE *entry);
 
 #endif

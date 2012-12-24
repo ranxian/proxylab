@@ -21,9 +21,10 @@
 const char* user_agent = "Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3)Gecko/20120305 Firefox/10.0.3";
 const char* accept_str = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 const char* accept_encoding = "gzip, deflate";
-int ca_readcnt;
-sem_t *mutexp, *w;
-pthread_rwlock_t rwlock;
+
+extern sem_t *mutexp;
+extern sem_t *w;
+extern int ca_readcnt;
 
 #define MAX_HDR_LEN 1024
 /*
@@ -31,7 +32,7 @@ pthread_rwlock_t rwlock;
  */
 int parse_uri(char *uri, char *target_addr, char *path, int  *port);
 void format_log_entry(char *logstring, struct sockaddr_in *sockaddr, char *uri, int size);
-void serve(int fd);
+int serve(int fd, char *cache_buf, char *request, int *cnt);
 void clienterror(int fd, char *msg);
 void build_requesthdrs(rio_t *rp, char *hdrstr, char *hostname);
 void *thread(void *argvp);
@@ -47,6 +48,8 @@ void server_log(struct sockaddr_in *sockaddr) {
 void sigint_handler() 
 {
     cache_deinit();
+
+    tswrapper_deinit();
 }
 /* 
  * main - Main routine for the proxy program 
@@ -87,11 +90,10 @@ int main(int argc, char **argv)
  * serve - the proxy server serves the request after connection 
  *         with the cliend built.
  */
-void serve(int fd) {
+int serve(int fd, char *cache_buf, char *request, int *cnt) {
     char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
     char hdrstr[MAX_HDR_LEN] = {}, hostname[MAXLINE], pathname[MAXLINE];
     int clientfd, port, readcnt;
-    char request[MAXLINE];
     CE *entry;
     rio_t rio;
   
@@ -114,15 +116,16 @@ void serve(int fd) {
         if (ca_readcnt == 0)
             sem_post(w);
         sem_post(mutexp);
-        return;
+        update_cache(entry);
+        return 0;
     }
 
 
     sscanf(buf, "%s %s %s", method, uri, version);       
-    // if (strcasecmp(method, "GET")) {                     
-    //     clienterror(fd, "Sorry, prxoy server servers only GET method now.");
-    //     return;
-    // }         
+    if (strcasecmp(method, "GET")) {                     
+        clienterror(fd, "Sorry, prxoy server servers only GET method now.");
+        return 0;
+    }         
     parse_uri(uri, hostname, pathname, &port);
     // printf("Uri parsed result: hostname: %s, pathname: %s, port: %d\n", hostname, pathname, port);
 
@@ -130,30 +133,28 @@ void serve(int fd) {
 
     /* Following will send request to the `real' server, ignore any error */
     if ((clientfd = Open_clientfd(hostname, port)) < 0) {
-        return;
+        return 0;
     }
     sprintf(buf, "%s /%s HTTP/1.0\r\n", method, pathname);
-    // printf("%s", buf);
+
     Rio_writen(clientfd, buf, strlen(buf));
     Rio_writen(clientfd, hdrstr, strlen(hdrstr));
-    // printf("%s", hdrstr);
 
-
-    char cache_buf[MAX_OBJECT_SIZE];
-    int cnt = 0, cached = 1;
+    *cnt = 0;
+    int cached = 1;
     while ((readcnt = Rio_readn(clientfd, buf, MAXLINE)) > 0) {
-        if (cnt + readcnt <= MAX_OBJECT_SIZE) {
-            memcpy(cache_buf + cnt, buf, readcnt);
-            cnt += readcnt;
+        if (*cnt + readcnt <= MAX_OBJECT_SIZE) {
+            memcpy(cache_buf + *cnt, buf, readcnt);
+            *cnt += readcnt;
         } else {
             cached = 0;
         }
         Rio_writen(fd, buf, readcnt);
     }
-    if (cached) {
-        add_cache_entry(request, cache_buf, cnt);
-    }
+    
     Close(clientfd);
+    
+    return cached;
 }
 
 void build_requesthdrs(rio_t *rp, char *hdrstr, char *hostname)
@@ -197,13 +198,17 @@ void build_requesthdrs(rio_t *rp, char *hdrstr, char *hostname)
  */
 void *thread(void *vargp)
 {
-    int connfd = *((int *)vargp);
+    int connfd = *((int *)vargp), cnt;
+    char cache_buf[MAX_OBJECT_SIZE], request[MAXLINE];
     Pthread_detach(pthread_self());
     Free(vargp);
 
-    serve(connfd);
+    int cached = serve(connfd, cache_buf, request, &cnt);
     Close(connfd);
-
+    if (cached) {
+        add_cache_entry(request, cache_buf, cnt);
+    }
+    
     return NULL;
 }
 
