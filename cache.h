@@ -8,6 +8,10 @@
 #define MAX_CACHE_SIZE 1048576 // 1M cache size
 #define MAX_OBJECT_SIZE 102400 // 100k max object size
 
+extern sem_t *mutexp;
+extern sem_t *w;
+extern int ca_readcnt;
+
 struct cache_entry_t {
     int key;
     char *content;

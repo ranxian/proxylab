@@ -2,13 +2,17 @@
 #include "assert.h"
 #include <stdio.h>
 
-/*
+sem_t *mutexp;
+sem_t *w;
+int ca_readcnt;
 
 void cache_init() 
 {
     ca_readcnt = 0;
 
-    pthread_rwlock_init(&rwlock, NULL);
+    sem_unlink("mutexp");
+    sem_unlink("w");
+
     sem_open("mutexp", O_CREAT, DEF_MODE, 1);
     sem_open("w", O_CREAT, DEF_MODE, 1);
 
@@ -18,7 +22,6 @@ void cache_init()
 
 void cache_deinit()
 {
-    pthread_rwlock_destroy(&rwlock);
     sem_destroy(mutexp);
     sem_destroy(w);
     CE *ptr = cache.ca_head;
@@ -102,8 +105,8 @@ void remove_cache_entry(CE *entry) {
         entry->prev_entry->next_entry = entry->next_entry;
         Free(entry);
     }
-    check_cache();
     cache.ca_size -= size;
+    check_cache();
 }
 
 
@@ -166,4 +169,3 @@ void check_cache() {
     assert(size == cache.ca_size);
     printf("check passed\n");
 }
-*/
